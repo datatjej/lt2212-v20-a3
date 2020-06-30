@@ -6,95 +6,53 @@ import pandas as pd
 # Whatever other imports you need
 import csv
 from glob import glob
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.decomposition import TruncatedSVD
 from sklearn.model_selection import train_test_split
 from nltk.corpus import stopwords
 
-def data_load(inputdir):
-    #get subdirectories of inputdir with help of the glob module:
-    folders = glob("{}/*".format(inputdir))
-    dict_emailindex_word = {}
-    stop_words = set(stopwords.words('english'))
+def data_load(folders):
+    corpus = []
+    authors= []
     for author_folder in folders:
-        with open
-        emails = []
-        # all words in author_folder tokenized and saved in list:
-        words += [word.lower() for word in sample.split() if (word.isalpha() and word not in stop_words)]
-        ## filter out unique words and their frequency in the sample:
-        uniqueWords, wordCount=get_unique(words)
-        
-        sample_index = "Doc_" + str(samples.index(sample))
-        for index, count in enumerate(wordCount):
-            if sample_index in dict_postindex_word:
-                dict_postindex_word[sample_index][uniqueWords[index]]=count
-            else: 
-                dict_postindex_word[sample_index]={}
-                dict_postindex_word[sample_index][uniqueWords[index]]=count
-    
-    #fill out NaN cells with 0's:
-    df = pd.DataFrame(dict_postindex_word).fillna(0) 
-    #transpose the dateframe so that x-axis becomes y-axis and vice versa: 
-    df_transposed = df.T
-    #turn df into numpy array:
-    df_as_nparray = df_transposed.to_numpy()
-    
-    freq_sums_of_nparray = np.sum(df_as_nparray, axis =0)
-    filtered_nparray = freq_sums_of_nparray > 10
-    features = df_as_nparray[:, filtered_nparray]
-    
-    return features
-    
+        author_specific_emails = glob("{}/*".format(author_folder))
+        author = author_folder[13:]
+        for email_path in author_specific_emails:
+            authors.append(author)
+            email_content = ""
+            with open(email_path, "r") as email:
+                for line in email:
+                    email_content += line
+            corpus += [email_content.lower()]
+    return corpus, authors
 
-def get_unique(x):
-    y, f = np.unique(x, return_counts=True)
-    return y, f
+def vectorize(corpus):
+    stop = set(stopwords.words('english'))
+    vectorizer = TfidfVectorizer(stop_words=stop, token_pattern=r'(?u)\b[A-Za-z][A-Za-z]+\b')
+    vectorized_corpus = vectorizer.fit_transform(corpus)
+    return vectorized_corpus #returns 
 
+def reduce_dims(vectorized_corpus, dims):
+    svd = TruncatedSVD(n_components=dims)
+    reduced_vectorized_corpus = svd.fit_transform(vectorized_corpus)
+    return reduced_vectorized_corpus
+
+def spit_in_test_train(X, y, testsize):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=testsize, random_state=42)
+    return X_train, X_test, y_train, y_test
+
+def create_df(X_train, X_test, y_train, y_test):
+    train_df = pd.DataFrame(X_train)
+    train_df.insert(0, "Type", "train", True)
+    train_df.insert(0, "Author", y_train, True)
     
-	
-    with open(path_to_dataset, "r") as thefile:
-        for line in thefile:
-            line_lists.append(line)
-    
-    random.shuffle(line_lists)
-    
-    train_dataset = line_lists[0:round(len(line_lists)*0.8)]
-    test_dataset = line_lists[round(len(line_lists)*0.8):]
-    
-    train_df = create_csv(train_dataset,'train.csv')
-    test_df = create_csv(test_dataset,'test.csv')
-    
-    return train_df,test_df
-    
-def split_example(example):
-    line_split = example.split()
-    
-    word_sense = line_split[0]
-    word_form = line_split[1]
-    word_index = line_split[2]
-    
-    return word_sense,word_form,word_index,line_split[3:]
-    
-    
-def create_csv(dataset,csv_name):
-    word_sense_list = []
-    word_form_list = []
-    word_index_list = []
-    tokenized_context_list = []
-    
-    for example in dataset:
-        word_sense,word_form,word_index,tokenized_context = split_example(example)
-        
-        word_sense_list.append(word_sense)
-        word_form_list.append(word_form)
-        word_index_list.append(word_index)
-        tokenized_context_list.append(tokenized_context)
-        
-    d = {'word_sense': word_sense_list, 'word_form': word_form_list, 'word_index': word_index_list, 'tokenized_context': tokenized_context_list}
-    df = pd.DataFrame(data=d)
-#     df.to_csv(csv_name)
-    
+    test_df = pd.DataFrame(X_test)
+    test_df.insert(0, "Type", "test", True)
+    test_df.insert(0, "Author", y_test, True)
+
+    df = pd.concat([train_df, test_df])
     return df
-	
-
+    
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Convert directories into table.")
     parser.add_argument("inputdir", type=str, help="The root of the author directories.")
@@ -107,11 +65,17 @@ if __name__ == "__main__":
     print("Reading {}...".format(args.inputdir))
     # Do what you need to read the documents here.
 
+    folders = glob("{}/*".format(args.inputdir))
+    corpus, authors = data_load(folders)
+    vectorized_corpus = vectorize(corpus)
+    reduced_vectorized_corpus = reduce_dims(vectorized_corpus, args.dims)
+    
     print("Constructing table with {} feature dimensions and {}% test instances...".format(args.dims, args.testsize))
-    # Build the table here.
+    X_train, X_test, y_train, y_test = spit_in_test_train(reduced_vectorized_corpus, authors, args.testsize)
+    df = create_df(X_train, X_test, y_train, y_test)
     
     print("Writing to {}...".format(args.outputfile))
     # Write the table out here.
+    output_file = df.to_csv(args.outputfile, index=False)
 
     print("Done!")
-    
