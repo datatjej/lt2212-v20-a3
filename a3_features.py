@@ -38,7 +38,8 @@ def reduce_dims(vectorized_corpus, dims):
     return reduced_vectorized_corpus
 
 def spit_in_test_train(X, y, testsize):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=testsize, random_state=42)
+    percentage = testsize/100
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=percentage, random_state=42)
     return X_train, X_test, y_train, y_test
 
 def create_df(X_train, X_test, y_train, y_test):
@@ -64,13 +65,13 @@ if __name__ == "__main__":
 
     print("Reading {}...".format(args.inputdir))
     # Do what you need to read the documents here.
-
     folders = glob("{}/*".format(args.inputdir))
     corpus, authors = data_load(folders)
     vectorized_corpus = vectorize(corpus)
-    reduced_vectorized_corpus = reduce_dims(vectorized_corpus, args.dims)
+    
     
     print("Constructing table with {} feature dimensions and {}% test instances...".format(args.dims, args.testsize))
+    reduced_vectorized_corpus = reduce_dims(vectorized_corpus, args.dims)
     X_train, X_test, y_train, y_test = spit_in_test_train(reduced_vectorized_corpus, authors, args.testsize)
     df = create_df(X_train, X_test, y_train, y_test)
     
