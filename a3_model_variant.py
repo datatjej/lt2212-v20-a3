@@ -12,6 +12,8 @@ from sklearn import preprocessing
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
 from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import average_precision_score
+import matplotlib.pyplot as plt
 
 
 
@@ -136,7 +138,7 @@ def calculate_accuracy(y_pred, y_test): #we take the predicted and actual output
 def train_test_model(featurefile, sample_size, hidden_size, nonlinear_fun):
     
     #reading the csv file containing the feature table:
-    df = pd.read_csv(featurefile) 
+    df = pd.read_csv(featurefile)
     
     #split the dataframe into two new ones: one with the 'test'-marked docs, and one with the 'train'-marked
     train, test = split_df(df) 
@@ -146,7 +148,7 @@ def train_test_model(featurefile, sample_size, hidden_size, nonlinear_fun):
     sample_size_test = sample_size/3
     train_samples = get_samples(train, sample_size_train)
     test_samples = get_samples(test, sample_size_test)
-    
+
     #extract document vectors and corresponding labels into four different sets: 
     X_train = np.array([sample_vector[0] for sample_vector in train_samples])
     X_test = np.array([sample_vector[0] for sample_vector in test_samples]) 
@@ -175,8 +177,8 @@ def train_test_model(featurefile, sample_size, hidden_size, nonlinear_fun):
  
     #check if GPU is active, otherwise use the CPU:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    
-    #model.train() tells PyTorch that you’re in training mode: 
+   
+    #initializing the model:
     input_size = X_train.shape[1]
     model = Neuralnette(input_size, hidden_size, nonlinear_fun)
     model.to(device)
@@ -204,9 +206,8 @@ def train_test_model(featurefile, sample_size, hidden_size, nonlinear_fun):
             
             epochs_loss += loss.item()
             epochs_acc += acc.item()
-        
-        #print out loss and accuracy per epoch:
-        print(f'Epoch {e+0:03}: | Loss: {epochs_loss/len(train_loader):.5f} | Acc: {epochs_acc/len(train_loader):.3f}')
+            
+        #print(f'Epoch {e+0:03}: | Loss: {epochs_loss/len(train_loader):.5f} | Acc: {epochs_acc/len(train_loader):.3f}')
        
    #intantiate a list that will hold the predictions:
     y_pred_list = []
@@ -223,18 +224,32 @@ def train_test_model(featurefile, sample_size, hidden_size, nonlinear_fun):
     y_pred_list = [a.squeeze().tolist() for a in y_pred_list]
 
     #precision, recall, F1-score and accuracy:
-    print("\n\n", classification_report(y_test, y_pred_list))
-    print("Accuracy score: ", accuracy_score(y_test, y_pred_list))
+    #print(classification_report(y_test, y_pred_list))  y_test = y_true, y_pred_list = y_pred
+    #print("Accuracy score: ", accuracy_score(y_test, y_pred_list))
+    
+    average_precision_recall_score = average_precision_score(y_test, y_pred_list)
+    
+    return average_precision_recall_score
+
+def part_bonus(featurefile, sample_size, hidden_range, nonlinear_fun):
+    average_precision_recall_list = []
+    for hidden in range(1, hidden_range+1):
+        average_precision_recall_score = train_test_model(featurefile, sample_size, hidden, nonlinear_fun)
+        average_precision_recall_list.append(average_precision_recall_score)
+    plt.plot([hidden for hidden in range(1, hidden_range+1)], average_precision_recall_list)
+    plt.xlabel('Hidden Layers')
+    plt.ylabel('Average Precision-Recall')
+    plt.savefig('avg_precision_recall_hidden_layers.png')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train and test a model on features.")
     parser.add_argument("featurefile", type=str, help="The file containing the table of instances and features.")
     parser.add_argument("--sample", type=int, default=1500, help="The sampling size for training data. Test data will be automatically set to sample 1/3 of that number.")
-    parser.add_argument("--hidden", type=int, help="The size of the hidden layer.")
+    parser.add_argument("--hidden_range", type=int, default=5, help="The range of the hidden layer size.")
     parser.add_argument("--nonlin", type=str, help="Nonlinear function, either 'relu' or 'tanh'.")
     
     args = parser.parse_args()
 
     print("Reading {}...".format(args.featurefile))
     
-    train_test_model(args.featurefile, args.sample, args.hidden, args.nonlin)
+    part_bonus(args.featurefile, args.sample, args.hidden_range, args.nonlin)
