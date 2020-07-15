@@ -20,5 +20,5 @@ Sample size is optional, just like hidden size and nonlinear function, and if no
 Go to the directory where a3_model_variant.py is located and run the following:<br>
 `python3 a3_model_variant.py <input_file_name.csv> --sample <sample_size_as_int> --hidden_range <hidden_layer_range_as_int> --nonlin <"relu" or "tanh">` 
 
-The terminal will once again show a bunch of DataConversionWarnings (sorry!), but should still run and produce a png file in the current directory. 
+All the double dashed commands are optional and have default values (sample_size = 1500, hidden_range = 5, nonlin = None) if not specified. The program will once again raise a bunch of DataConversionWarnings (sorry!) but should still run and produce a PNG file in the current directory. 
 
